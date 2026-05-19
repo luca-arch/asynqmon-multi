@@ -1,0 +1,168 @@
+version: "2"
+run:
+    allow-parallel-runners: true
+linters:
+    enable:
+        - asasalint
+        - asciicheck
+        - bidichk
+        - bodyclose
+        - containedctx
+        - contextcheck
+        - copyloopvar
+        - cyclop
+        - decorder
+        - depguard
+        - dogsled
+        - dupl
+        - durationcheck
+        - err113
+        - errchkjson
+        - errname
+        - errorlint
+        - exhaustive
+        - exhaustruct
+        - forbidigo
+        - forcetypeassert
+        - funlen
+        - gochecknoglobals
+        - gochecknoinits
+        - gocognit
+        - goconst
+        - gocritic
+        - gocyclo
+        - godot
+        - goheader
+        - gomoddirectives
+        - gomodguard_v2
+        - goprintffuncname
+        - gosec
+        - grouper
+        - importas
+        - ireturn
+        - lll
+        - loggercheck
+        - maintidx
+        - makezero
+        - misspell
+        - mnd
+        - nakedret
+        - nestif
+        - nilerr
+        - nilnil
+        - nlreturn
+        - noctx
+        - nolintlint
+        - nonamedreturns
+        - nosprintfhostport
+        - paralleltest
+        - prealloc
+        - predeclared
+        - promlinter
+        - revive
+        - rowserrcheck
+        - sqlclosecheck
+        - staticcheck
+        - tagliatelle
+        - testpackage
+        - thelper
+        - tparallel
+        - unconvert
+        - unparam
+        - usestdlibvars
+        - usetesting
+        - wastedassign
+        - whitespace
+        - wrapcheck
+        - wsl_v5
+    settings:
+        cyclop:
+            max-complexity: 15
+        depguard:
+            rules:
+                prevent_unmaintained_packages:
+                    list-mode: lax
+                    files:
+                        - $all
+                        - "!$test"
+                    allow:
+                        - $gostd
+                    deny:
+                        - pkg: io/ioutil
+                          desc: "replaced by io and os packages since Go 1.16: https://tip.golang.org/doc/go1.16#ioutil"
+        dupl:
+            threshold: 100
+        forbidigo:
+            analyze-types: true
+            forbid:
+                - pattern: print(ln)?$
+                  msg: default
+        funlen:
+            lines: 120
+            statements: 80
+            ignore-comments: true
+        goconst:
+            min-len: 2
+            min-occurrences: 5
+        gocyclo:
+            min-complexity: 15
+        govet:
+            settings:
+                printf:
+                    funcs:
+                        - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+                        - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+                        - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+                        - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+        lll:
+            line-length: 100
+            tab-width: 1
+        misspell:
+            locale: UK
+        mnd:
+            ignored-numbers:
+                - "0o600"
+                - "0o644"
+                - "0o755"
+        nolintlint:
+            require-explanation: true
+            require-specific: true
+    exclusions:
+        generated: lax
+        presets:
+            - comments
+            - common-false-positives
+            - legacy
+            - std-error-handling
+        rules:
+            - linters:
+                  - bodyclose
+                  - cyclop
+                  - dupl
+                  - err113
+                  - exhaustruct
+                  - forcetypeassert
+                  - funlen
+                  - gosec
+                  - maintidx
+                  - wrapcheck
+              path: _test\.go
+            - linters:
+                  - wrapcheck
+              path: main\.go$
+        paths:
+            - third_party$
+            - builtin$
+            - examples$
+formatters:
+    enable:
+        - gci
+        - gofmt
+        - gofumpt
+        - goimports
+    exclusions:
+        generated: lax
+        paths:
+            - third_party$
+            - builtin$
+            - examples$

@@ -1,34 +1,23 @@
-package asynqmonmulti
+package server
 
 import (
-	_ "embed"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hibiken/asynq"
-)
-
-//go:embed default_index.tpl
-var defaultTemplate string
-
-var (
-	errCliOptions      = errors.New("parsing cli arguments")
-	errInvalidTemplate = errors.New("invalid HTML template")
-	errNoQueue         = errors.New("missing --queues-file")
-	errRunServer       = errors.New("running server")
-	errShuttingDown    = errors.New("shutting down server")
+	"github.com/hibiken/asynqmon"
 )
 
 // OptionsProducer defines the HTTP server options.
 type OptionsProducer interface {
 	Address() string
 	AsynqQueues() map[string]Queue
+	HTTPHandler(opts asynqmon.Options) *asynqmon.HTTPHandler
 	ShutdownDuration() time.Duration
 	Template() string
 }
 
-// Options defines the configuration options for the asynqmonmulti server. It implements
+// Options defines the configuration options for the asynqmon-multi server. It implements
 // the [OptionsProducer] interface.
 type Options struct {
 	// Address to listen on, defaults to [DefaultAddr].
@@ -67,6 +56,11 @@ func (o *Options) AsynqQueues() map[string]Queue {
 	return o.Queues
 }
 
+// HTTPHandler is invoked by [Serve] to create a HTTPHandler with the given options.
+func (o *Options) HTTPHandler(opts asynqmon.Options) *asynqmon.HTTPHandler {
+	return asynqmon.New(opts)
+}
+
 // ShutdownDuration returns the duration to wait for the server to gracefully shut down.
 func (o *Options) ShutdownDuration() time.Duration {
 	if o.ShutdownTimeout < 1 {
@@ -87,10 +81,10 @@ func (o *Options) Template() string {
 
 // Queue defines the [asynq.RedisClientOpt] values of a specific queue.
 type Queue struct {
-	ReadOnly       bool
-	RedisAddr      string
-	RedisClientOpt *asynq.RedisClientOpt
-	RedisDB        int
+	ReadOnly       bool                  `json:"readOnly"`
+	RedisAddr      string                `json:"redisAddr"`
+	RedisClientOpt *asynq.RedisClientOpt `json:"-"`
+	RedisDB        int                   `json:"redisDb"`
 }
 
 // RedisClientOption generates a [asynq.RedisClientOpt] for the queue.

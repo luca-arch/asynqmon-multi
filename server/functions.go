@@ -1,16 +1,16 @@
-package asynqmonmulti
+package server
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"html/template"
 	"iter"
 	"maps"
 	"os"
 	"slices"
-	"strconv"
 )
 
 func execTemplate(htmlTemplate string, queues map[string]Queue) ([]byte, error) {
@@ -18,14 +18,14 @@ func execTemplate(htmlTemplate string, queues map[string]Queue) ([]byte, error) 
 
 	t, err := template.New("index").Parse(htmlTemplate)
 	if err != nil {
-		return nil, errors.Join(errInvalidTemplate, err)
+		return nil, errors.Join(ErrInvalidTemplate, err)
 	}
 
 	if err := t.Execute(&html, map[string]any{
 		"Queues": sortedQueues(queues),
 		"Title":  programName,
 	}); err != nil {
-		return nil, errors.Join(errInvalidTemplate, err)
+		return nil, errors.Join(ErrInvalidTemplate, err)
 	}
 
 	return html.Bytes(), nil
@@ -47,7 +47,7 @@ func optionsFromCli(args []string) (*Options, error) {
 		)
 		port = fs.Uint(
 			"port", 0,
-			"Port to listen on, defaults to "+strconv.Itoa(DefaultPort),
+			fmt.Sprintf("Port to listen on, defaults to %d", DefaultPort),
 		)
 		qf = fs.String(
 			"queues-file", "",
@@ -64,26 +64,26 @@ func optionsFromCli(args []string) (*Options, error) {
 	)
 
 	if err := fs.Parse(args); err != nil {
-		return nil, errors.Join(errCliOptions, err)
+		return nil, errors.Join(ErrCliOptions, err)
 	}
 
 	if *qf == "" {
-		return nil, errors.Join(errCliOptions, errNoQueue)
+		return nil, errors.Join(ErrCliOptions, ErrNoQueue)
 	}
 
 	cf, err := os.ReadFile(*qf)
 	if err != nil {
-		return nil, errors.Join(errCliOptions, err)
+		return nil, errors.Join(ErrCliOptions, err)
 	}
 
 	if err := json.Unmarshal(cf, &queues); err != nil {
-		return nil, errors.Join(errCliOptions, err)
+		return nil, errors.Join(ErrCliOptions, ErrInvalidFile, err)
 	}
 
 	if *tf != "" {
-		f, err := os.ReadFile(*qf)
+		f, err := os.ReadFile(*tf)
 		if err != nil {
-			return nil, errors.Join(errCliOptions, err)
+			return nil, errors.Join(ErrCliOptions, ErrInvalidFile, err)
 		}
 
 		tpl = string(f)
@@ -106,4 +106,26 @@ func sortedQueues(queues map[string]Queue) iter.Seq2[string, Queue] {
 			}
 		}
 	}
+}
+
+func validateOptions(queues map[string]Queue) error {
+	if len(queues) == 0 {
+		return fmt.Errorf("%w: no queues defined", ErrInvalidOption)
+	}
+
+	seen := make(map[string]string, len(queues))
+
+	for name, q := range sortedQueues(queues) {
+		k := fmt.Sprintf("%s|%d", q.RedisAddr, q.RedisDB)
+
+		if existing, ok := seen[k]; ok {
+			return fmt.Errorf("%w: duplicate queue specified by %s and %s (address=%s, db=%d)",
+				ErrInvalidOption, existing, name, q.RedisAddr, q.RedisDB,
+			)
+		}
+
+		seen[k] = name
+	}
+
+	return nil
 }

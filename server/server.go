@@ -1,4 +1,4 @@
-package asynqmonmulti
+package server
 
 import (
 	"context"
@@ -12,16 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Default values for command line invocation.
-const (
-	DefaultAddr             = "0.0.0.0"
-	DefaultPort             = 8080
-	DefaultShutdownDuration = 10 * time.Second
-
-	programName = "asynqmon-multi"
-)
-
-// Main is the entry point for the asynqmonmulti server.
+// Main is the entry point for the asynqmon-multi server.
 // It sets up signal handling for graceful shutdown and calls [Serve].
 //
 // The program [Options] are read from the provided command line arguments, or defaulted to
@@ -38,19 +29,21 @@ func Main(args []string) error {
 	return Serve(ctx, opts)
 }
 
-// Serve starts the HTTP server for asynqmonmulti with the given context and options.
-// It sets up the necessary routes for each queue and handles graceful shutdown when the context
-// is cancelled.
-func Serve(ctx context.Context, opts OptionsProducer) error {
+// New sets up a new [http.Server] without starting it.
+func New(opts OptionsProducer) (*http.Server, error) {
+	if err := validateOptions(opts.AsynqQueues()); err != nil {
+		return nil, err
+	}
+
 	html, err := execTemplate(opts.Template(), opts.AsynqQueues())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	mux := http.NewServeMux()
 
 	for name, q := range sortedQueues(opts.AsynqQueues()) {
-		h := asynqmon.New(asynqmon.Options{
+		h := opts.HTTPHandler(asynqmon.Options{
 			PayloadFormatter:  nil,
 			PrometheusAddress: "",
 			ReadOnly:          q.ReadOnly,
@@ -62,7 +55,7 @@ func Serve(ctx context.Context, opts OptionsProducer) error {
 		mux.Handle(h.RootPath()+"/", h)
 	}
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 
 		if _, err := w.Write(html); err != nil {
@@ -70,18 +63,26 @@ func Serve(ctx context.Context, opts OptionsProducer) error {
 		}
 	})
 
-	var (
-		g, gCtx = errgroup.WithContext(ctx)
+	return &http.Server{ //nolint:exhaustruct // Default values are ok.
+		Addr:              opts.Address(),
+		Handler:           mux,
+		IdleTimeout:       time.Minute,
+		ReadHeaderTimeout: time.Minute,
+		ReadTimeout:       time.Minute,
+		WriteTimeout:      time.Minute,
+	}, nil
+}
 
-		srv = http.Server{ //nolint:exhaustruct // Default values are ok.
-			Addr:              opts.Address(),
-			Handler:           mux,
-			IdleTimeout:       time.Minute,
-			ReadHeaderTimeout: time.Minute,
-			ReadTimeout:       time.Minute,
-			WriteTimeout:      time.Minute,
-		}
-	)
+// Serve starts the HTTP server for asynqmon-multi with the given context and options.
+// It sets up the necessary routes for each queue and handles graceful shutdown when the context
+// is cancelled.
+func Serve(ctx context.Context, opts OptionsProducer) error {
+	srv, err := New(opts)
+	if err != nil {
+		return err
+	}
+
+	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(srv.ListenAndServe)
 

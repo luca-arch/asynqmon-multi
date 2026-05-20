@@ -3,10 +3,13 @@ run:
     allow-parallel-runners: true
 linters:
     enable:
+        - arangolint
         - asasalint
         - asciicheck
         - bidichk
         - bodyclose
+        - canonicalheader
+        - clickhouselint
         - containedctx
         - contextcheck
         - copyloopvar
@@ -15,40 +18,63 @@ linters:
         - depguard
         - dogsled
         - dupl
+        - dupword
         - durationcheck
+        - embeddedstructfieldcheck
         - err113
+        - errcheck
         - errchkjson
         - errname
         - errorlint
         - exhaustive
         - exhaustruct
+        - exptostd
+        - fatcontext
         - forbidigo
         - forcetypeassert
+        - funcorder
         - funlen
+        - ginkgolinter
+        - gocheckcompilerdirectives
         - gochecknoglobals
         - gochecknoinits
+        - gochecksumtype
         - gocognit
         - goconst
         - gocritic
         - gocyclo
+        - godoclint
         - godot
+        - godox
         - goheader
         - gomoddirectives
         - gomodguard_v2
         - goprintffuncname
         - gosec
+        - gosmopolitan
+        - govet
         - grouper
+        - iface
         - importas
+        - inamedparam
+        - ineffassign
+        - interfacebloat
+        - intrange
+        - iotamixing
         - ireturn
         - lll
         - loggercheck
         - maintidx
         - makezero
+        - mirror
         - misspell
         - mnd
+        - modernize
+        - musttag
         - nakedret
         - nestif
         - nilerr
+        - nilnesserr
         - nilnil
         - nlreturn
         - noctx
@@ -56,25 +82,37 @@ linters:
         - nonamedreturns
         - nosprintfhostport
         - paralleltest
+        - perfsprint
         - prealloc
         - predeclared
         - promlinter
+        - protogetter
+        - reassign
+        - recvcheck
         - revive
         - rowserrcheck
+        - sloglint
+        - spancheck
         - sqlclosecheck
         - staticcheck
+        - tagalign
         - tagliatelle
+        - testableexamples
+        - testifylint
         - testpackage
         - thelper
         - tparallel
         - unconvert
         - unparam
+        - unqueryvet
+        - unused
         - usestdlibvars
         - usetesting
         - wastedassign
         - whitespace
         - wrapcheck
         - wsl_v5
+        - zerologlint
     settings:
         cyclop:
             max-complexity: 15
@@ -107,6 +145,9 @@ linters:
         gocyclo:
             min-complexity: 15
         govet:
+            enable-all: true
+            disable:
+                - fieldalignment # Prefer AZ ordering of fields
             settings:
                 printf:
                     funcs:
@@ -114,6 +155,8 @@ linters:
                         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
                         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
                         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+            shadow:
+                strict: true
         lll:
             line-length: 100
             tab-width: 1
@@ -136,20 +179,8 @@ linters:
             - std-error-handling
         rules:
             - linters:
-                  - bodyclose
-                  - cyclop
-                  - dupl
-                  - err113
                   - exhaustruct
-                  - forcetypeassert
-                  - funlen
-                  - gosec
-                  - maintidx
-                  - wrapcheck
               path: _test\.go
-            - linters:
-                  - wrapcheck
-              path: main\.go$
         paths:
             - third_party$
             - builtin$

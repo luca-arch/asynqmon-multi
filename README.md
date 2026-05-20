@@ -7,7 +7,7 @@ Wrapper for [hibiken/asynqmon](https://github.com/hibiken/asynqmon) to manage mu
 ### Install the binary
 
 ```sh
-go install github.com/luca-arch/asynqmon-multi
+go install github.com/luca-arch/asynqmon-multi@latest
 ```
 
 Display usage
@@ -46,21 +46,21 @@ package main
 import (
 	"context"
 
-	asynqmonmulti "github.com/luca-arch/asynqmon-multi"
 	"github.com/hibiken/asynq"
+	"github.com/luca-arch/asynqmon-multi/server"
 )
 
 func main() {
 	// Invoke as main
-	asynqmonmulti.Main(nil)
+	server.Main(nil)
 
 	// Or invoke as service
-	asynqmonmulti.Serve(context.Background(), &asynqmonmulti.Options{
+	server.Serve(context.Background(), &server.Options{
 		Addr:            "localhost",
 		HTMLTemplate:    "", // Use default
 		Port:            1337,
 		ShutdownTimeout: 60,
-		Queues: map[string]asynqmonmulti.Queue{
+		Queues: map[string]server.Queue{
 			"server1": {
 				RedisAddr: "redis:6379",
 				RedisDB:   1,
@@ -88,18 +88,22 @@ func main() {
 }
 ```
 
+The function `New` can also be utilised to instantiate a new [http.Server](https://pkg.go.dev/net/http#Server) without starting it.
+
 ## Sample queue config file
+
+The JSON file passed via `-queues-file` should look like this. Note the field `RedisClientOpt` cannot be specified via JSON, so `server.Serve` or `server.New` must be used when, say, a username or password are required to connect to Redis.
 
 ```json
 {
     "server1": {
-        "RedisAddr": "redis:6379",
-        "RedisDB": 1
+        "redisAddr": "redis:6379",
+        "redisDb": 1
     },
     "server2": {
-        "ReadOnly": true,
-        "RedisAddr": "redis:6379",
-        "RedisDB": 2
+        "readOnly": true,
+        "redisAddr": "redis:6379",
+        "redisDb": 2
     }
 }
 ```

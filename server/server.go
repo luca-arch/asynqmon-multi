@@ -35,12 +35,13 @@ func New(opts OptionsProducer) (*http.Server, error) {
 		return nil, err
 	}
 
-	html, err := execTemplate(opts.Template(), opts.AsynqQueues())
+	rh, err := RootHandler(opts)
 	if err != nil {
 		return nil, err
 	}
 
 	mux := http.NewServeMux()
+	mux.Handle("/{$}", rh)
 
 	for name, q := range sortedQueues(opts.AsynqQueues()) {
 		h := opts.HTTPHandler(asynqmon.Options{
@@ -55,14 +56,6 @@ func New(opts OptionsProducer) (*http.Server, error) {
 		mux.Handle(h.RootPath()+"/", h)
 	}
 
-	mux.HandleFunc("/{$}", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-
-		if _, err := w.Write(html); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-
 	return &http.Server{ //nolint:exhaustruct // Default values are ok.
 		Addr:              opts.Address(),
 		Handler:           mux,
@@ -70,6 +63,35 @@ func New(opts OptionsProducer) (*http.Server, error) {
 		ReadHeaderTimeout: time.Minute,
 		ReadTimeout:       time.Minute,
 		WriteTimeout:      time.Minute,
+	}, nil
+}
+
+// RootHandler returns a [http.HandlerFunc] suitable for the index page.
+//
+// If the configuration specifies only one queue, the returned handler redirects to that queue's
+// dashboard. Otherwise, it renders the [OptionsProducer.Template].
+func RootHandler(opts OptionsProducer) (http.HandlerFunc, error) {
+	aq := opts.AsynqQueues()
+
+	if len(aq) == 1 {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for name := range aq {
+				http.Redirect(w, r, "/"+name, http.StatusFound)
+			}
+		}), nil
+	}
+
+	html, err := execTemplate(opts.Template(), aq)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+
+		if _, err := w.Write(html); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}, nil
 }
 

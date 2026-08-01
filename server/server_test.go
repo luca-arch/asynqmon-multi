@@ -15,7 +15,7 @@ import (
 func TestMain(t *testing.T) {
 	t.Parallel()
 
-	validQueues := mkTestFile(t, `{"db1": {}}`)
+	validQueues := mkTestFile(t, `{"db1": {"redisDb": 1}, "db2": {"redisDb": 2}}`)
 
 	tests := map[string]struct {
 		args []string
@@ -161,30 +161,15 @@ func TestNew(t *testing.T) {
 func TestServe(t *testing.T) {
 	t.Parallel()
 
-	var (
-		startErr  error
-		startTime = time.Second
-	)
-
-	go func() {
-		startErr = server.Serve(t.Context(), &server.Options{
-			Addr:            "127.0.0.1",
-			Port:            64242,
-			ShutdownTimeout: 1,
-			Queues: map[string]server.Queue{
-				"db1": {RedisDB: 1},
-				"db5": {RedisDB: 5},
-			},
-		})
-	}()
-
-	time.Sleep(startTime)
-
-	if startErr != nil {
-		t.Fatalf("could not start test server: %v", startErr)
-
-		return
-	}
+	startTestServer(t, &server.Options{
+		Addr:            "127.0.0.1",
+		Port:            64242,
+		ShutdownTimeout: 1,
+		Queues: map[string]server.Queue{
+			"db1": {RedisDB: 1},
+			"db5": {RedisDB: 5},
+		},
+	})
 
 	tests := map[string]struct {
 		endpoint   string
@@ -230,7 +215,7 @@ func TestServe(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := mkGetResponse(t, tc.endpoint)
+			got := mkGetResponse(t, "http://127.0.0.1:64242"+tc.endpoint)
 			defer got.Body.Close()
 
 			if got.StatusCode != tc.wantStatus {
@@ -255,6 +240,67 @@ func TestServe(t *testing.T) {
 					t.Errorf("tag %s not found in %s", tag, html)
 
 					return
+				}
+			}
+		})
+	}
+}
+
+func TestServeOne(t *testing.T) {
+	t.Parallel()
+
+	startTestServer(t, &server.Options{
+		Addr:            "127.0.0.1",
+		Port:            64343,
+		ShutdownTimeout: 1,
+		Queues: map[string]server.Queue{
+			"only_db": {RedisDB: 1},
+		},
+	})
+
+	tests := map[string]struct {
+		endpoint   string
+		wantHeader map[string]string
+		wantStatus int
+	}{
+		"index page": {
+			endpoint:   "/",
+			wantHeader: map[string]string{"Location": "/only_db"},
+			wantStatus: http.StatusFound,
+		},
+		"only_db page": {
+			endpoint:   "/only_db/",
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := mkGetResponse(t, "http://127.0.0.1:64343"+tc.endpoint)
+			defer got.Body.Close()
+
+			if got.StatusCode != tc.wantStatus {
+				t.Errorf("got %d, want %d", got.StatusCode, tc.wantStatus)
+
+				return
+			}
+
+			if tc.wantHeader == nil {
+				return
+			}
+
+			for h, val := range tc.wantHeader {
+				all, ok := got.Header[h]
+
+				switch {
+				case !ok:
+					t.Errorf("header %s not found in response", h)
+				case len(all) != 1:
+					t.Errorf("wrong number of headers %s returned: got %d, want 1", h, len(all))
+				case all[0] != val:
+					t.Errorf("invalid header %s returned: got %s, want %s", h, all[0], val)
 				}
 			}
 		})

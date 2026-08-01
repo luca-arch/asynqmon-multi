@@ -4,11 +4,15 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/luca-arch/asynqmon-multi/server"
 )
 
-const baseURL = "http://127.0.0.1:64242"
+const (
+	delayAfterStart = time.Second
+	maxReqTime      = time.Second
+)
 
 func mkTestFile(t *testing.T, content string) string {
 	t.Helper()
@@ -48,22 +52,45 @@ func mkTestQueues(t *testing.T) map[string]server.Queue {
 	}
 }
 
-func mkGetResponse(t *testing.T, endpoint string) *http.Response {
+func mkGetResponse(t *testing.T, url string) *http.Response {
 	t.Helper()
 
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, baseURL+endpoint, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	if err != nil {
-		t.Fatalf("preparing %s %s: %v", http.MethodGet, endpoint, err)
+		t.Fatalf("preparing %s %s: %v", http.MethodGet, url, err)
 
 		return nil
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	c := &http.Client{
+		Timeout: maxReqTime,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	res, err := c.Do(req)
 	if err != nil {
-		t.Fatalf("performing %s %s: %v", http.MethodGet, endpoint, err)
+		t.Fatalf("performing %s %s: %v", http.MethodGet, url, err)
 
 		return nil
 	}
 
 	return res
+}
+
+func startTestServer(t *testing.T, opts *server.Options) {
+	t.Helper()
+
+	var err error
+
+	go func() {
+		err = server.Serve(t.Context(), opts)
+	}()
+
+	time.Sleep(delayAfterStart)
+
+	if err != nil {
+		t.Fatalf("could not start test server: %v", err)
+	}
 }
